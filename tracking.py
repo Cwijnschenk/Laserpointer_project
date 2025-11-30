@@ -20,8 +20,10 @@ print("Press Q to quit.")
 D_ref = 0.40   # meters: stand this far from camera
 w_ref = 180    # pixels: face box width observed at D_ref
 
-# smoothing for distance
+# smoothing functions
 alpha = 0.25
+SPEED_ALPHA = 0.1
+
 
 # ---- window (NOT fullscreen) ----
 window_name = "Face Tracking"
@@ -91,7 +93,22 @@ while True:
             dt = max(now - tracks[tid]["last_t"], 1e-6)
             dx = cx - prev_center[0]
             dy = cy - prev_center[1]
-            speed_px_s = math.sqrt(dx * dx + dy * dy) / dt
+
+            # ruwe snelheid in x en y (px/s)
+            vx_raw = dx / dt
+            vy_raw = dy / dt
+
+            # vorige gefilterde snelheden
+            vx_prev = tracks[tid].get("vx", vx_raw)
+            vy_prev = tracks[tid].get("vy", vy_raw)
+
+            # low-pass filter (smoothing)
+            vx = SPEED_ALPHA * vx_raw + (1.0 - SPEED_ALPHA) * vx_prev
+            vy = SPEED_ALPHA * vy_raw + (1.0 - SPEED_ALPHA) * vy_prev
+
+            # totale snelheid op basis van de gefilterde componenten
+            speed_px_s = math.hypot(vx, vy)
+
 
             nx = (cx - W / 2) / (W / 2)
             ny = (cy - H / 2) / (H / 2)
@@ -106,6 +123,8 @@ while True:
                 "bbox": (x, y, w, h),
                 "nx": nx,
                 "ny": ny,
+                "vx": vx,
+                "vy": vy,
                 "speed_px_s": speed_px_s,
                 "dist_smooth": D_smooth,
                 "last_t": now,
@@ -125,6 +144,8 @@ while True:
             "nx": nx,
             "ny": ny,
             "speed_px_s": 0.0,
+            "vx": 0.0,
+            "vy": 0.0,
             "dist_smooth": D_est,
             "last_t": now,
             "trail": deque([(cx, cy)], maxlen=TRAIL_LEN),
@@ -158,7 +179,11 @@ while True:
         # labels (Face numbers reset to 1..N each frame)
         label1 = f"Face {face_num}"
         label2 = f"cx,cy=({cx},{cy})  nx,ny=({tr['nx']:+.2f},{tr['ny']:+.2f})"
-        label3 = f"dist~{tr['dist_smooth']:.2f} m   v~{tr['speed_px_s']:.0f} px/s"
+        label3 = (
+        f"D~{tr['dist_smooth']:.2f} m  "
+        f"v=({tr['vx']:+.1f},{tr['vy']:+.1f}) px/s  "
+        f"|v|~{tr['speed_px_s']:.0f} px/s"
+        )
 
         y0 = max(y - 55, 20)
         cv2.putText(frame, label1, (x, y0),
