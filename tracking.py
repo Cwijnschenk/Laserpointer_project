@@ -17,7 +17,7 @@ if not cap.isOpened():
 print("Press Q to quit.")
 
 # ---- distance calibration (set these once) ----
-D_ref = 0.60   # meters: stand this far from camera
+D_ref = 0.40   # meters: stand this far from camera
 w_ref = 180    # pixels: face box width observed at D_ref
 
 # smoothing for distance
